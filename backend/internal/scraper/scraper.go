@@ -5,6 +5,8 @@ import (
 	"log"
 	"strconv"
 
+	"github.com/choiivan13/ustchart/backend/internal/db"
+	"github.com/choiivan13/ustchart/backend/types"
 	"github.com/gocolly/colly/v2"
 )
 
@@ -16,27 +18,27 @@ type Scraper struct {
 	Offering string
 	// Interval of Scraping Time, measured in minutes
 	Interval float64
-	Courses  []Course
+	DB       db.Operations
 }
 
-func NewScraper(offering string, interval float64) *Scraper {
+func NewScraper(offering string, interval float64, dB db.Operations) *Scraper {
 	return &Scraper{
 		Offering: offering,
 		Interval: interval,
-		Courses:  make([]Course, 0),
+		DB:       dB,
 	}
 }
 
-func (s Scraper) Scrape() {
+// TODO timestamp with cron
+func (s Scraper) Scrape(timeStamp int64) {
 	deptCollector := colly.NewCollector(
 		colly.Async(),
 	)
 	courseCollector := deptCollector.Clone()
 
+	// Department Crawl
 	deptCollector.OnHTML(".depts .ug", func(e *colly.HTMLElement) {
 		link := e.Attr("href")
-		// Print link
-		// fmt.Printf("Link found: %q -> %s\n", e.Text, link)
 		courseCollector.Visit(e.Request.AbsoluteURL(link))
 	})
 
@@ -49,9 +51,6 @@ func (s Scraper) Scrape() {
 		courseName := e.ChildText("h2")
 		if courseName == "" {
 			log.Println("No title found", e.Request.URL)
-		}
-		course := Course{
-			CourseName: courseName,
 		}
 		// Iterate over rows of the table which contains different information
 		// about the course
@@ -85,23 +84,29 @@ func (s Scraper) Scrape() {
 				log.Println(err, courseName)
 			}
 
-			nextSection := Section{
+			nextSection := types.Section{
+				Offering:    s.Offering,
+				CourseName:  courseName,
 				SectionName: newSection.ChildText("td:nth-child(1)"),
-				Time:        newSection.ChildText("td:nth-child(2)"),
+				CourseTime:  newSection.ChildText("td:nth-child(2)"),
 				Instructors: instructors,
-				Quota:       quota,
-				Enrol:       enrol,
-				Wait:        wait,
+				Data: types.Data{
+					TimeStamp: timeStamp,
+					Quota:     quota,
+					Enrol:     enrol,
+					Wait:      wait,
+				},
 			}
-			course.Sections = append(course.Sections, nextSection)
 
-			s.Courses = append(s.Courses, course)
-			fmt.Println("Section added:", nextSection)
+			// Update in database
+			s.DB.UpdateSection(nextSection)
+
+			// fmt.Println("Section added:", nextSection)
 		})
 		fmt.Println("Course finished: ", courseName)
 	})
 
-	deptCollector.Visit("https://w5.ab.ust.hk/wcq/cgi-bin/2210/")
+	deptCollector.Visit("https://w5.ab.ust.hk/wcq/cgi-bin/2230/")
 	deptCollector.Wait()
 	courseCollector.Wait()
 }

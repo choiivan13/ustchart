@@ -99,11 +99,11 @@ func (s Scraper) Scrape(timeStamp int64) {
 			}
 
 			// Update in database
-			s.DB.UpdateSection(nextSection)
+			s.DB.UpdateSection(&nextSection)
 
 			// fmt.Println("Section added:", nextSection)
 		})
-		fmt.Println("Course finished: ", courseName)
+		// fmt.Println("Course finished: ", courseName)
 	})
 
 	deptCollector.Visit("https://w5.ab.ust.hk/wcq/cgi-bin/2230/")

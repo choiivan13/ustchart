@@ -18,3 +18,7 @@ type Data struct {
 	Enrol     int   `json:"enrol,omitempty" bson:"enrol,omitempty"`
 	Wait      int   `json:"wait,omitempty" bson:"wait,omitempty"`
 }
+
+type DataList struct {
+	Data []Data `json:"data,omitempty" bson:"data,omitempty"`
+}

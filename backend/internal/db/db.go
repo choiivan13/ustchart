@@ -14,7 +14,8 @@ import (
 )
 
 type Operations interface {
-	UpdateSection(s types.Section)
+	UpdateSection(s *types.Section)
+	GetSection(s *types.Section) []types.Data
 }
 
 type MongoDBHandler struct {
@@ -43,7 +44,7 @@ func NewDBHandler() *MongoDBHandler {
 	}
 }
 
-func (m MongoDBHandler) UpdateSection(s types.Section) {
+func (m MongoDBHandler) UpdateSection(s *types.Section) {
 	collection := m.Client.Database("ustchart").Collection(s.Offering)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -67,4 +68,23 @@ func (m MongoDBHandler) UpdateSection(s types.Section) {
 	if err != nil {
 		panic(err)
 	}
+}
+
+func (m MongoDBHandler) GetSection(s *types.Section) []types.Data {
+	collection := m.Client.Database("ustchart").Collection(s.Offering)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	filter := bson.M{
+		"offering":    s.Offering,
+		"coursename":  s.CourseName,
+		"sectionname": s.SectionName,
+	}
+	options := options.FindOne().SetProjection(bson.M{"data": 1, "_id": 0})
+	var result types.DataList
+	err := collection.FindOne(ctx, filter, options).Decode(&result)
+	if err != nil {
+		panic(err)
+	}
+
+	return result.Data
 }

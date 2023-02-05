@@ -2,37 +2,39 @@ package main
 
 import (
 	"fmt"
+	"log"
+	"net/http"
 	"time"
 
-	"github.com/choiivan13/ustchart/backend/internal/db"
-	"github.com/choiivan13/ustchart/backend/internal/scraper"
+	"github.com/choiivan13/ustchart/backend/server"
 	"github.com/robfig/cron/v3"
 )
 
 func main() {
-	// s := os.Getenv("USTCHARTURL")
-	// fmt.Println(s)
+	// mongodb := db.NewDBHandler()
+	// s := scraper.NewScraper("2230", 123, mongodb)
+	s := server.NewServer("2230", 123)
 
-	c := cron.New()
-	mongodb := db.NewDBHandler()
-	s := scraper.NewScraper("2230", 123, mongodb)
+	// Scraper cron
+	go func() {
+		c := cron.New()
+		c.AddFunc("*/10 * * * *", func() {
+			t := time.Now().Truncate(5 * time.Minute)
+			fmt.Println("Time now is: ", t.String(), ", scraping...")
+			s.Scraper.Scrape(t.Unix())
+			fmt.Println("Job Finished!")
+		})
+		c.Start()
+		for time.Now().Before(time.Date(2023, 2, 15, 0, 0, 0, 0, time.Now().Location())) {
+			time.Sleep(8 * (time.Hour))
+		}
+	}()
 
-	// section := types.Section{
-	// 	Offering:    "2230",
-	// 	CourseName:  "BIBU 4830 - Biotechnology Management (3 units)",
-	// 	SectionName: "L1 (1730)",
-	// }
-	// result := s.DB.GetSection(&section)
-	// fmt.Println(result)
+	// Http Listening
+	http.HandleFunc("/section", s.QuerySingleSection)
+	http.HandleFunc("/sections", s.GetAllSectionIdentifier)
 
-	c.AddFunc("*/10 * * * *", func() {
-		t := time.Now().Truncate(5 * time.Minute)
-		fmt.Println("Time now is: ", t.String(), ", scraping...")
-		s.Scrape(t.Unix())
-		fmt.Println("Job Finished!")
-	})
-	c.Start()
-	time.Sleep(8 * (time.Hour))
+	log.Fatal(http.ListenAndServe(":3000", nil))
 }
 
 // s := types.Section{

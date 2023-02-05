@@ -11,6 +11,7 @@ import (
 )
 
 type Operations interface {
+	Scrape(int64)
 }
 
 type Scraper struct {

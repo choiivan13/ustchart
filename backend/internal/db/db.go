@@ -15,7 +15,8 @@ import (
 
 type Operations interface {
 	UpdateSection(s *types.Section)
-	GetSection(s *types.Section) []types.Data
+	GetSection(s *types.Section) types.SectionData
+	GetSectionsIdentifier() []types.SectionIdentifier
 }
 
 type MongoDBHandler struct {
@@ -70,7 +71,7 @@ func (m MongoDBHandler) UpdateSection(s *types.Section) {
 	}
 }
 
-func (m MongoDBHandler) GetSection(s *types.Section) []types.Data {
+func (m MongoDBHandler) GetSection(s *types.Section) types.SectionData {
 	collection := m.Client.Database("ustchart").Collection(s.Offering)
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -79,12 +80,35 @@ func (m MongoDBHandler) GetSection(s *types.Section) []types.Data {
 		"coursename":  s.CourseName,
 		"sectionname": s.SectionName,
 	}
-	options := options.FindOne().SetProjection(bson.M{"data": 1, "_id": 0})
-	var result types.DataList
+	options := options.FindOne().SetProjection(bson.M{"_id": 0})
+	var result types.SectionData
 	err := collection.FindOne(ctx, filter, options).Decode(&result)
 	if err != nil {
 		panic(err)
 	}
 
-	return result.Data
+	return result
+}
+
+func (m MongoDBHandler) GetSectionsIdentifier() []types.SectionIdentifier {
+	collection := m.Client.Database("ustchart").Collection("2230")
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	options := options.Find().SetProjection(bson.M{"offering": 1, "coursename": 1, "sectionname": 1, "_id": 0})
+
+	cur, err := collection.Find(ctx, bson.D{}, options)
+	if err != nil {
+		panic(err)
+	}
+
+	var results []types.SectionIdentifier
+	cur.All(context.Background(), &results)
+	// for cur.Next(context.Background()) {
+	// 	// To decode into a struct, use cursor.Decode()
+	// 	err := cur.Decode(&result)
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// }
+	return results
 }
